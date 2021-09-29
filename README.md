@@ -1,4 +1,4 @@
-# Local positioning system with ESPNow protocol
+# LPS with ESPNow protocol
 ## Abstract ##
 This paper briefly explains the methdologies of contructing a local postioning system with ESP32 chips using the ESPNow protocol. After completing readers will be able to -
 * Get a brief overview of local position system
