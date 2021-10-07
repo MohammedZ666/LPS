@@ -168,17 +168,26 @@ void manageSlave() {
 }
 
 
-uint8_t data = 0;
+typedef struct payload{
+  int   h{12};
+  int   k{5};
+  float r{0};
+} payload;
+
+payload data;
 // send data
 void sendData() {
-  data++;
+  
   for (int i = 0; i < SlaveCnt; i++) {
     const uint8_t *peer_addr = slaves[i].peer_addr;
     if (i == 0) { // print only for first slave
       Serial.print("Sending: ");
-      Serial.println(data);
+      Serial.println(sizeof(data));
     }
-    esp_err_t result = esp_now_send(peer_addr, &data, sizeof(data));
+   
+    data.r = getDistance(i);
+
+    esp_err_t result = esp_now_send(peer_addr, (uint8_t *)&data, sizeof(data));
     Serial.print("Send Status: ");
     if (result == ESP_OK) {
       Serial.println("Success");
@@ -207,6 +216,13 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
            mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
   Serial.print("Last Packet Sent to: "); Serial.println(macStr);
   Serial.print("Last Packet Send Status: "); Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+
+float getDistance(int slaveIndex){
+  // taking x as rssi for the ease of writing the formula
+  int x = WiFi.RSSI(slaveIndex);
+  return ((-0.043* pow(x,5) - 4.92*pow(x,4) - 171.5* pow(x,3) - 600.8* pow(x,2) + 41.41*x - 0.84)/
+  (pow(x,4) + 250.4*pow(x,3) + 14780*pow(x,2) - 455.9*x + 12.24));
 }
 
 void setup() {
