@@ -30,7 +30,7 @@
 
 
   // Sample Serial log with 1 master & 2 slaves
-      Found 12 devices 
+      Found 12 devices
       1: Slave:24:0A:C4:81:CF:A4 [24:0A:C4:81:CF:A5] (-44)
       3: Slave:30:AE:A4:02:6D:CC [30:AE:A4:02:6D:CD] (-55)
       2 Slave(s) found, processing..
@@ -52,6 +52,7 @@
 // Global copy of slave
 #define NUMSLAVES 20
 esp_now_peer_info_t slaves[NUMSLAVES] = {};
+int32_t slave_rssi_arr[20];
 int SlaveCnt = 0;
 
 #define CHANNEL 0
@@ -107,6 +108,7 @@ void ScanForSlave() {
         }
         slaves[SlaveCnt].channel = CHANNEL; // pick a channel
         slaves[SlaveCnt].encrypt = 0; // no encryption
+        slave_rssi_arr[SlaveCnt] = RSSI;
         SlaveCnt++;
       }
     }
@@ -168,25 +170,24 @@ void manageSlave() {
 }
 
 
-typedef struct payload{
-  int   h{12};
-  int   k{5};
+typedef struct payload {
+  int   h{0};
+  int   k{0};
   float r{0};
 } payload;
 
 payload data;
 // send data
 void sendData() {
-  
+
   for (int i = 0; i < SlaveCnt; i++) {
     const uint8_t *peer_addr = slaves[i].peer_addr;
     if (i == 0) { // print only for first slave
       Serial.print("Sending: ");
       Serial.println(sizeof(data));
     }
-   
-    data.r = getDistance(i);
 
+    data.r = getDistance(i);
     esp_err_t result = esp_now_send(peer_addr, (uint8_t *)&data, sizeof(data));
     Serial.print("Send Status: ");
     if (result == ESP_OK) {
@@ -218,11 +219,12 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   Serial.print("Last Packet Send Status: "); Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
 
-float getDistance(int slaveIndex){
+float getDistance(int deviceIndex) {
   // taking x as rssi for the ease of writing the formula
-  int x = WiFi.RSSI(slaveIndex);
-  return ((-0.043* pow(x,5) - 4.92*pow(x,4) - 171.5* pow(x,3) - 600.8* pow(x,2) + 41.41*x - 0.84)/
-  (pow(x,4) + 250.4*pow(x,3) + 14780*pow(x,2) - 455.9*x + 12.24));
+  int32_t x = slave_rssi_arr[deviceIndex];
+  float distance = ((-0.043 * pow(x, 5) - 4.92 * pow(x, 4) - 171.5 * pow(x, 3) - 600.8 * pow(x, 2) + 41.41 * x - 0.84) /
+                    (pow(x, 4) + 250.4 * pow(x, 3) + 14780 * pow(x, 2) - 455.9 * x + 12.24));
+  return  distance;
 }
 
 void setup() {

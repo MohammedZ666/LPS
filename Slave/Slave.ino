@@ -32,16 +32,19 @@
 
 
 #ifdef ESP32
-  #include <WiFi.h>
-  #include <esp_now.h>
-  #define esp8266 false
+#include <WiFi.h>
+#include <esp_now.h>
+#define esp8266 false
 #else
-  #include <ESP8266WiFi.h>
-  #include <espnow.h>
+#include <ESP8266WiFi.h>
+#include <espnow.h>
 #endif
-  
+
 
 #define CHANNEL 0
+
+char macStrPrev[18];
+
 
 // Init ESP Now with fallback
 void InitESPNow() {
@@ -72,23 +75,102 @@ void configDeviceAP() {
   }
 }
 
+
+float getX(float h0, float k0, float h1, float k1, float r0, float r1)
+{
+  float e{((h1 * h1 - h0 * h0 + k1 * k1 - k0 * k0 - (r1 * r1 - r0 * r0)) / (2 * (k1 - k0))) - k0};
+  float f{ -(h1 - h0) / (k1 - k0)};
+  float a{f * f + 1};
+  float b{2 * ((f * e) - h0)};
+  float c{e * e + h0 * h0 - r0 * r0};
+  return getPositiveRoot(a, b, c);
+}
+float getY(float h0, float k0, float h1, float k1, float r0, float r1)
+{
+  float e{((h1 * h1 - h0 * h0 + k1 * k1 - k0 * k0 - (r1 * r1 - r0 * r0)) / (2 * (h1 - h0))) - h0};
+  float f{ -(k1 - k0) / (h1 - h0)};
+  float a{f * f + 1};
+  float b{2 * ((f * e) - k0)};
+  float c{e * e + k0 * k0 - r0 * r0};
+  return getPositiveRoot(a, b, c);
+}
+
+float getPositiveRoot(float a, float b, float c)
+{
+  float discriminant{0};
+  discriminant = b * b - 4 * a * c;
+  if (discriminant < 0)
+  {
+    //cout << sqrt(-discriminant) / (2 * a) << "\n";
+    discriminant = 0;
+  }
+
+  float y1 = (-b + sqrt(discriminant)) / (2 * a);
+  float y2 = (-b - sqrt(discriminant)) / (2 * a);
+  if (y2 > 0)
+    return y2;
+  return y1;
+}
+
+
+
+
+typedef struct payload {
+  int   h{12};
+  int   k{5};
+  float r{0};
+} payload;
+payload data0;
+
 //Overloading callback functions that will be executed when data is received on the basis of ESP chips used
 //below one is for esp8266
-void OnDataRecv(uint8_t * mac_addr, uint8_t *data, uint8_t data_len) {
- char macStr[18];
+void OnDataRecv(uint8_t * mac_addr, uint8_t *incomingData, uint8_t data_len) {
+  payload data1;
+  char macStr[18];
   snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
            mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+  if (macStrPrev[0] == 0) {
+    strcpy(macStrPrev, macStr);
+    memcpy(&data0, incomingData, sizeof(data0));
+  }
+  else if (String(macStrPrev).equals(String(macStr))) {
+    memcpy(&data0, incomingData, sizeof(data0)); //getting the updated data
+    return;
+  }
+  else {
+    macStrPrev[0] = 0;
+    memcpy(&data1, incomingData, sizeof(data1));    Serial.print("(X, Y) => ("); Serial.print(getX(data0.h, data0.k, data1.h, data1.k, data0.r, data1.r)); Serial.print(", "); Serial.print(getY(data0.h, data0.k, data1.h, data1.k, data0.r, data1.r)); Serial.println(") ");
+
+  }
+
   Serial.print("Last Packet Recv from: "); Serial.println(macStr);
-  Serial.print("Last Packet Recv Data: "); Serial.println(*data);
+  //Serial.printf("h -> %d, k-> %d, r-> %f", data0.h, data0.k, data0.r);
   Serial.println("");
 }
+
+
 //below one is for esp32
-void OnDataRecv(const uint8_t * mac_addr, const uint8_t *data, int data_len) {
- char macStr[18];
+void OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomingData, int data_len) {
+  payload data1;
+  char macStr[18];
   snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
            mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+  if (macStrPrev[0] == 0) {
+    strcpy(macStrPrev, macStr);
+    memcpy(&data0, incomingData, sizeof(data0));
+  }
+  else if (String(macStrPrev).equals(String(macStr))) {
+    memcpy(&data0, incomingData, sizeof(data0)); //getting the updated data
+    return;
+  }
+  else {
+    macStrPrev[0] = 0;
+    memcpy(&data1, incomingData, sizeof(data1));    Serial.print("(X, Y) => ("); Serial.print(getX(data0.h, data0.k, data1.h, data1.k, data0.r, data1.r)); Serial.print(", "); Serial.print(getY(data0.h, data0.k, data1.h, data1.k, data0.r, data1.r)); Serial.println(") ");
+
+  }
+
   Serial.print("Last Packet Recv from: "); Serial.println(macStr);
-  Serial.print("Last Packet Recv Data: "); Serial.println(*data);
+  //Serial.printf("h -> %d, k-> %d, r-> %f", data0.h, data0.k, data0.r);
   Serial.println("");
 }
 void setup() {
