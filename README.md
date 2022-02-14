@@ -11,5 +11,7 @@ We can solve these two equation for x and y. Since there are two unknowns and tw
 
 We can place master (ESP32/8266) with their center or `(h,k)` hard-coded into them to transmit packets to all slaves (ESP32/8266) in an area. For which the slaves will be able to solve for their position in the local-coordinate system with the position and distance data from two such master. Here distance can be measured using this [methodology](https://www.researchgate.net/publication/322877438_Estimate_distance_measurement_using_NodeMCU_ESP8266_based_on_RSSI_technique) via the RSSI strength.
 
+Please flash `master.ino` to master esp32/8266 nodes and `slave.ino` to slave esp32/8266 nodes.
+
 This methodology was not tested extensively for its correctness.
  
